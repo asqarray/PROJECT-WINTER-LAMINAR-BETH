@@ -1,39 +1,32 @@
-/**
- * PROJECT WINTER: LAMINAR-BETH PRO (v1.0.0)
- * Optimized for: Tesla Neural Network Accelerator (NNA) / xAI H100 Clusters
- */
-
 #ifndef LAMINAR_BETH_PRO_H
 #define LAMINAR_BETH_PRO_H
 
-#include <immintrin.h> // Target: AVX-512 / Tesla NNA Intrinsics
+#include <immintrin.h> 
 #include <cmath>
-#include <iostream>
 
-namespace SovereignAI {
-    static constexpr float PHI = 1.61803398875f;
+namespace Winter {
+    // Phi: The irrational dampener that prevents quantization resonance.
+    static constexpr float PHI_SCALAR = 1.61803398875f;
 
-    inline __m512 apply_laminar_step(__m512 activation, __m512 variance) {
-        __m512 v_phi = _mm512_set1_ps(PHI);
-        __m512 denom = _mm512_add_ps(v_phi, variance);
-        __m512 coeff = _mm512_div_ps(v_phi, denom);
-        return _mm512_mul_ps(activation, coeff);
+    inline __m512 apply_laminar_filter(__m512 activations, __m512 variance) {
+        const __m512 v_phi = _mm512_set1_ps(PHI_SCALAR);
+        // Resonant Scaling: act * (phi / (phi + variance))
+        return _mm512_mul_ps(activations, 
+               _mm512_div_ps(v_phi, _mm512_add_ps(v_phi, variance)));
     }
 
-    void process_laminar_inference(float* data, size_t size) {
-        if (size < 16) return;
-        
-        // Simplified variance calculation for high-speed pass
-        float sum = 0.0f, sq_sum = 0.0f;
-        for (size_t i = 0; i < 1024 && i < size; ++i) {
-            sum += data[i];
-            sq_sum += data[i] * data[i];
-        }
-        __m512 v_variance = _mm512_set1_ps(std::abs((sq_sum / 1024.0f) - (sum / 1024.0f * sum / 1024.0f)));
+    void execute_laminar_pass(float* tensor_data, size_t count) {
+        // Aligned memory is the mark of a Senior Systems Engineer.
+        if (count % 16 != 0) return; 
 
-        for (size_t i = 0; i < size; i += 16) {
-            __m512 v_data = _mm512_loadu_ps(&data[i]);
-            _mm512_storeu_ps(&data[i], apply_laminar_step(v_data, v_variance));
+        // Variance sampling to detect informational heat.
+        float sample_sum = 0.0f;
+        for(int i = 0; i < 256 && i < count; ++i) sample_sum += std::abs(tensor_data[i]);
+        __m512 v_var = _mm512_set1_ps(sample_sum / 256.0f);
+
+        for (size_t i = 0; i < count; i += 16) {
+            __m512 v_act = _mm512_loadu_ps(&tensor_data[i]);
+            _mm512_storeu_ps(&tensor_data[i], apply_laminar_filter(v_act, v_var));
         }
     }
 }
